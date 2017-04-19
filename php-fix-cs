@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+
+# Script for fixing CS in php files by using php-cs-fixer
+# How to install php-cs-fixer - https://github.com/FriendsOfPHP/PHP-CS-Fixer
+
+echo "php-cs-fixer starts"
+
+PHP_CS_FIXER="/usr/local/bin/php-cs-fixer"
+PHP_CS_FIXER_CONFIG="./.php_cs.dist"
+
+#GIT MODE
+#fix CS with git diff
+GIT_FLAG="--git"
+GIT_MODE=false
+GIT_DIFF_FILTER="ACMdRTUXB"
+#
+#fix single file
+FILE_TO_FIX=""
+
+if [ "$1" == "$GIT_FLAG" ]; then
+	GIT_MODE=true;
+elif [ -z "$1" ]; then
+	echo "You have to use either --git flag or pass path to file"
+	exit 1;
+else	
+	FILE_TO_FIX=$1;
+fi	
+
+isCsFixerExist() {
+	#check if we can execute cs fixer
+	if [ -x "$1" ]; then
+    	return 1;
+    else
+    	return 0;
+	fi
+}
+
+isCsFixerConfigExist() {
+	#check config exist
+	if [ -f "$1" ]; then
+    	return 1;
+    else
+    	return 0;
+	fi
+}
+
+checkCsFixer() {
+	isCsFixerExist $PHP_CS_FIXER;
+	if [ "$?" -eq 0 ]; then
+	    echo "Please install php-cs-fixer and put it to $PHP_CS_FIXER"
+	    exit 1;	
+	fi
+
+	isCsFixerConfigExist $PHP_CS_FIXER_CONFIG;
+	if [ "$?" -eq 0 ]; then
+	    echo "Please create config for php-cs-fixer. Example: $PHP_CS_FIXER_CONFIG"
+	    exit 1;
+	fi
+}
+
+#fix by GIT diff
+fixCsInGit() {
+	git diff --name-only --diff-filter=$GIT_DIFF_FILTER | grep -e '^\(.*\).php$' | while read line; do
+        $PHP_CS_FIXER fix --config=$PHP_CS_FIXER_CONFIG -v "$line";
+    done
+}
+
+#fix single file
+fixSingleFile() {
+	#check file exist
+	if [ ! -f "$1" ]; then
+    	echo "File $1 does not exist"
+    	exit 1;
+	fi
+	$PHP_CS_FIXER fix --config=$PHP_CS_FIXER_CONFIG -v "$1"
+}
+
+
+#check configuration for php cs fixer
+checkCsFixer;
+
+#fix CS
+if $GIT_MODE == true; then
+	fixCsInGit;
+else
+	fixSingleFile $FILE_TO_FIX;
+fi	
+
+echo "php-cs-fixer finished"
